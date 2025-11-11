@@ -1,0 +1,335 @@
+package explanation;
+
+// You import the GUI (Swing) and utility classes you need for this program
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.ArrayList;
+import java.util.List;
+
+// This class stores the information (username + password) for each user (admin or staff)
+class info {
+    String uname, pass;
+    info(String uname, String pass) {
+        this.uname = uname;   // the user's name
+        this.pass = pass;     // the user's password
+    }
+}
+
+// This class is the circular queue structure for jeepney IDs (like a circular line)
+// Think: The waiting line for jeepneys, where the first to enter is the first to be dispatched (FIFO)
+class CircularQueue {
+    private String[] queue;    // This holds the actual IDs of jeepneys as strings
+    private int front;         // Points to the "front" of the queue (who is next for dispatch)
+    private int rear;          // Points to the "end" of the queue (where new jeepneys get in line)
+    private int maxSize;       // How big the queue can get (maximum slots waiting)
+    private int currentSize;   // How many jeepneys are currently in queue
+
+    // When we create a queue, we set its max size and initialize variables
+    public CircularQueue(int size) {
+        maxSize = size;
+        queue = new String[maxSize];
+        front = -1;    // means queue is empty at first
+        rear = -1;     // means queue is empty at first
+        currentSize = 0;
+    }
+
+    // Returns true if queue is completely filled
+    public boolean isFull() {
+        return currentSize == maxSize;
+    }
+
+    // Returns true if queue has nobody in line
+    public boolean isEmpty() {
+        return currentSize == 0;
+    }
+
+    // Add a new jeepney at the rear; will error if queue is full
+    public void enqueue(String jeepneyId) {
+        if (isFull()) {
+            throw new RuntimeException("Queue is full. Cannot add jeepney: " + jeepneyId);
+        }
+        if (isEmpty()) {
+            front = 0; // If queue was empty, set front to the first slot
+        }
+        rear = (rear + 1) % maxSize; // Rear moves one to right, wraps to zero if at end
+        queue[rear] = jeepneyId;
+        currentSize++; // We have one more in queue now
+    }
+
+    // Remove (and return) the jeepney at the front
+    public String dequeue() {
+        if (isEmpty()) {
+            throw new RuntimeException("Queue is empty. No jeepney to dispatch.");
+        }
+        String jeepneyId = queue[front];
+        queue[front] = null; // For clarity, we clear the slot
+        if (front == rear) {
+            // Only one jeepney was in queue, now queue is empty
+            front = -1;
+            rear = -1;
+        } else {
+            front = (front + 1) % maxSize; // Move front forward, wrap if needed
+        }
+        currentSize--;
+        return jeepneyId;
+    }
+
+    // Return JEEPNEYS currently in queue as a string array
+    public String[] getQueue() {
+        if (isEmpty()) return new String[0]; // Return empty array if no jeepneys waiting
+        String[] result = new String[currentSize];
+        int index = 0;
+        int i = front;
+        while (index < currentSize) {
+            result[index++] = queue[i];
+            i = (i + 1) % maxSize;
+        }
+        return result;
+    }
+
+    // How many are currently waiting
+    public int getCurrentSize() {
+        return currentSize;
+    }
+
+    // Maximum allowed in queue
+    public int getMaxSize() {
+        return maxSize;
+    }
+}
+
+/*
+AccountManager is the login/sign up GUI.
+It stores all accounts (users/staff), lets you log in (if info matches),
+and lets you create new account (basic sign up function).
+*/
+class AccountManager implements ActionListener {
+    ArrayList<info> accounts = new ArrayList<>();
+    JFrame frm;
+    JButton btnlog, btnsign;
+    
+    AccountManager() {
+        // Add two default accounts you can use for testing or demo: admin/admin123 and user/pass
+        accounts.add(new info("admin", "admin123"));
+        accounts.add(new info("user", "pass"));
+        
+        frm = new JFrame("Jeepney Terminal Organizer");
+        frm.setSize(1000, 600); // window size
+        frm.setLocationRelativeTo(null);
+        frm.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE); // exit app when closed
+        
+        // This is the welcome screen with the two big buttons
+        JPanel mainPanel = new JPanel();
+        mainPanel.setLayout(null); // manual positioning
+        mainPanel.setBackground(new Color(0, 191, 255));
+        
+        JLabel lbl1 = new JLabel("Welcome to");
+        lbl1.setBounds(350, 50, 400, 80);
+        lbl1.setFont(new Font("Georgia", Font.BOLD, 45));
+        lbl1.setForeground(new Color(0, 102, 204));
+        
+        JLabel lbl2 = new JLabel("JTO"); // short for Jeepney Terminal Organizer!
+        lbl2.setBounds(430, 120, 200, 80);
+        lbl2.setFont(new Font("Georgia", Font.BOLD, 56));
+        lbl2.setForeground(new Color(0, 102, 204));
+        
+        JLabel subtitle = new JLabel("Jeepney Terminal Organizer");
+        subtitle.setBounds(330, 190, 400, 30);
+        subtitle.setFont(new Font("Georgia", Font.PLAIN, 20));
+        subtitle.setForeground(Color.DARK_GRAY);
+        
+        // These are your log in and sign up buttons
+        btnlog = new JButton("Log in");
+        btnlog.setFont(new Font("Georgia", Font.BOLD, 35));
+        btnlog.setBackground(new Color(52, 152, 219));
+        btnlog.setForeground(Color.WHITE);
+        btnlog.setBounds(370, 280, 250, 70);
+        btnlog.setFocusPainted(false);
+        btnlog.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        
+        btnsign = new JButton("Sign up");
+        btnsign.setFont(new Font("Georgia", Font.BOLD, 35));
+        btnsign.setBackground(new Color(46, 204, 113));
+        btnsign.setForeground(Color.WHITE);
+        btnsign.setBounds(370, 380, 250, 70);
+        btnsign.setFocusPainted(false);
+        btnsign.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        
+        // Add everything to the panel and to the main window
+        mainPanel.add(lbl1);
+        mainPanel.add(lbl2);
+        mainPanel.add(subtitle);
+        mainPanel.add(btnlog);
+        mainPanel.add(btnsign);
+        
+        frm.add(mainPanel);
+        frm.setVisible(true);
+        
+        // Add "action listeners" so clicking buttons works
+        btnsign.addActionListener(this);
+        btnlog.addActionListener(this);
+    }
+    
+    // Called when you click -> Sign up
+    void signUp() {
+        JFrame signfrm = new JFrame("Sign Up - JTO");
+        signfrm.setSize(550, 350);
+        signfrm.setLocationRelativeTo(frm);
+        signfrm.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        
+        JPanel signPanel = new JPanel();
+        signPanel.setLayout(null);
+        signPanel.setBackground(Color.white);
+        
+        JLabel crtlbl = new JLabel("Create Account");
+        crtlbl.setFont(new Font("Georgia", Font.BOLD, 22));
+        crtlbl.setForeground(new Color(46, 204, 113));
+        crtlbl.setBounds(180, 30, 200, 30);
+        
+        JLabel userlbl = new JLabel("Enter Username:");
+        userlbl.setFont(new Font("Arial", Font.PLAIN, 14));
+        userlbl.setBounds(100, 90, 130, 30);
+        
+        JLabel passlbl = new JLabel("Enter Password:");
+        passlbl.setFont(new Font("Arial", Font.PLAIN, 14));
+        passlbl.setBounds(100, 140, 130, 30);
+        
+        JTextField usertxt = new JTextField();
+        usertxt.setFont(new Font("Arial", Font.PLAIN, 14));
+        usertxt.setBounds(230, 90, 200, 30);
+        
+        JPasswordField passfield = new JPasswordField();
+        passfield.setFont(new Font("Arial", Font.PLAIN, 14));
+        passfield.setBounds(230, 140, 200, 30);
+        
+        JButton signBtn = new JButton("Sign up");
+        signBtn.setFont(new Font("Arial", Font.BOLD, 14));
+        signBtn.setBackground(new Color(46, 204, 113));
+        signBtn.setForeground(Color.WHITE);
+        signBtn.setBounds(210, 200, 120, 40);
+        signBtn.setFocusPainted(false);
+        signBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        
+        // add everything and show
+        signPanel.add(crtlbl);
+        signPanel.add(userlbl);
+        signPanel.add(passlbl);
+        signPanel.add(usertxt);
+        signPanel.add(passfield);
+        signPanel.add(signBtn);
+        signfrm.add(signPanel);
+        signfrm.setVisible(true);
+        
+        // When you press sign up
+        signBtn.addActionListener(e -> {
+            String signName = usertxt.getText().trim();
+            String signPass = new String(passfield.getPassword()).trim();
+            if (signName.isEmpty() || signPass.isEmpty()) {
+                JOptionPane.showMessageDialog(signfrm, "Please fill in all fields!", "Empty Fields", JOptionPane.WARNING_MESSAGE);
+            } else if (signName.length() < 3) {
+                JOptionPane.showMessageDialog(signfrm, "Username must be at least 3 characters!", "Invalid Username", JOptionPane.WARNING_MESSAGE);
+            } else if (signPass.length() < 4) {
+                JOptionPane.showMessageDialog(signfrm, "Password must be at least 4 characters!", "Invalid Password", JOptionPane.WARNING_MESSAGE);
+            } else {
+                // Check for duplicate usernames
+                boolean exists = false;
+                for (info acc : accounts) {
+                    if (acc.uname.equalsIgnoreCase(signName)) {
+                        exists = true;
+                        break;
+                    }
+                }
+                if (exists) {
+                    JOptionPane.showMessageDialog(signfrm, "Username already exists!", "Duplicate Username", JOptionPane.ERROR_MESSAGE);
+                } else {
+                    accounts.add(new info(signName, signPass));
+                    JOptionPane.showMessageDialog(signfrm, "Account created successfully!\nYou can now log in.", "Success", JOptionPane.INFORMATION_MESSAGE);
+                    signfrm.dispose();
+                }
+            }
+        });
+        passfield.addActionListener(e -> signBtn.doClick());
+    }
+    
+    // Called when you click -> Log in
+    void logIn() {
+        JFrame logfrm = new JFrame("Log In - JTO");
+        logfrm.setSize(550, 350);
+        logfrm.setLocationRelativeTo(frm);
+        logfrm.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        
+        JPanel logPanel = new JPanel();
+        logPanel.setLayout(null);
+        logPanel.setBackground(Color.white);
+        
+        JLabel titleLbl = new JLabel("Login to JTO");
+        titleLbl.setFont(new Font("Georgia", Font.BOLD, 22));
+        titleLbl.setForeground(new Color(52, 152, 219));
+        titleLbl.setBounds(200, 30, 200, 30);
+        
+        JLabel userlbl = new JLabel("Enter Username:");
+        userlbl.setFont(new Font("Arial", Font.PLAIN, 14));
+        userlbl.setBounds(100, 90, 130, 30);
+        
+        JLabel passlbl = new JLabel("Enter Password:");
+        passlbl.setFont(new Font("Arial", Font.PLAIN, 14));
+        passlbl.setBounds(100, 140, 130, 30);
+        
+        JTextField usertxt = new JTextField();
+        usertxt.setFont(new Font("Arial", Font.PLAIN, 14));
+        usertxt.setBounds(230, 90, 200, 30);
+        
+        JPasswordField passfield = new JPasswordField();
+        passfield.setFont(new Font("Arial", Font.PLAIN, 14));
+        passfield.setBounds(230, 140, 200, 30);
+        
+        JButton logBtn = new JButton("Log in");
+        logBtn.setFont(new Font("Arial", Font.BOLD, 14));
+        logBtn.setBackground(new Color(52, 152, 219));
+        logBtn.setForeground(Color.WHITE);
+        logBtn.setBounds(210, 200, 120, 40);
+        logBtn.setFocusPainted(false);
+        logBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        
+        logPanel.add(titleLbl);
+        logPanel.add(userlbl);
+        logPanel.add(passlbl);
+        logPanel.add(usertxt);
+        logPanel.add(passfield);
+        logPanel.add(logBtn);
+        logfrm.add(logPanel);
+        logfrm.setVisible(true);
+        
+        logBtn.addActionListener(e -> {
+            String lname = usertxt.getText().trim();
+            String lpass = new String(passfield.getPassword()).trim();
+            boolean found = false;
+            for (info acc : accounts) {
+                if (lname.equalsIgnoreCase(acc.uname) && lpass.equals(acc.pass)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                JOptionPane.showMessageDialog(logfrm, "Login successful! Welcome " + lname, "Success", JOptionPane.INFORMATION_MESSAGE);
+                logfrm.dispose();
+                frm.dispose(); // Close the login window
+                new MainInterface(lname);
+            } else {
+                JOptionPane.showMessageDialog(logfrm, "Invalid credentials! Please try again.", "Login Failed", JOptionPane.ERROR_MESSAGE);
+                passfield.setText("");
+            }
+        });
+        passfield.addActionListener(e -> logBtn.doClick());
+        usertxt.requestFocus();
+    }
+    
+    public void actionPerformed(ActionEvent e) {
+        if (e.getSource() == btnsign) signUp();
+        else if (e.getSource() == btnlog) logIn();
+    }
+}
+
+// ...rest of code follows the same pattern, each function paired
+// with a clear beginner-level, practical explanation for variable/GUI logic/block
